@@ -1,0 +1,21 @@
+version: "3"
+services:
+    neo4j-metagraph:
+        image: neo4j:5.12.0
+        container_name: neo4j
+        hostname: neo4j
+        ports: 
+        - 7474:7474
+        - 7687:7687
+        networks:
+        - metagraphnet
+        environment:
+        - NEO4J_AUTH=none
+    metagraph:
+        build: metagraph/.
+        container_name: metagraph
+        networks:
+        - metagraphnet
+networks:
+    metagraphnet:
+        driver: bridge

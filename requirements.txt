@@ -1,0 +1,4 @@
+requests==2.31.0
+sqlglot==v18.5.1
+typer==0.9.0
+neo4j==5.12.0
