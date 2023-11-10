@@ -2,6 +2,10 @@ import requests, os
 from sqlglot import parse_one, exp
 import typer
 from neo4j import GraphDatabase
+import urllib3
+
+urllib3.disable_warnings()
+
 
 app = typer.Typer()
 
@@ -77,32 +81,46 @@ def getCollectionsMetadata(session) -> dict:
 def getSourcesFromCard(session, id:int) -> dict:
     card_sources = []
     response = session.get(f"{card_url}/{id}", verify=False)
-    card_metadata = response.json()
-    # Is the query a native query?
-    if 'native' in card_metadata['dataset_query']:
-        # If it is, does it have template tags?
-        if 'template-tags' in card_metadata['dataset_query']['native'] and len(card_metadata['dataset_query']['native']['template-tags']) != 0:
-            # Then let's find the cards on those template tags and append them to the array
-            cards = key_finder(card_metadata, 'card-id')
-            for source in cards:
-                card_sources.append({'source-table' : f"card__{source['card-id']}"})
-            # Now, let's grab the query and replace all those template tags for a dummy table, this is extremely important to parse the SQL afterwards, or otherwise it will fail
-            for tag in card_metadata['dataset_query']['native']['template-tags']:
-                query_to_parse = card_metadata['dataset_query']['native']['query'].replace(f'{{{{{tag}}}}}', 'dummy')
+    if (response.status_code == 200):
+        card_metadata = response.json()
+        # Is the query a native query?
+        if 'native' in card_metadata['dataset_query']:
+            # If it is, does it have template tags?
+            if 'template-tags' in card_metadata['dataset_query']['native'] and len(card_metadata['dataset_query']['native']['template-tags']) != 0:
+                # Then let's find the cards on those template tags and append them to the array
+                cards = key_finder(card_metadata, 'card-id')
+                for source in cards:
+                    card_sources.append({'source-table' : f"card__{source['card-id']}"})
+                # Now, let's grab the query and replace all those template tags for a dummy table, this is extremely important to parse the SQL afterwards, or otherwise it will fail
+                for tag in card_metadata['dataset_query']['native']['template-tags']:
+                    query_to_parse = card_metadata['dataset_query']['native']['query'].replace(f'{{{{{tag}}}}}', 'dummy')
+            else:
+                query_to_parse = card_metadata['dataset_query']['native']['query']
+            # And after all, wipe optional clauses
+            query_to_parse = query_to_parse.replace('[[', '').replace(']]', '')
+            try:
+                for table in parse_one(query_to_parse).find_all(exp.Table):
+                    if table.name != 'dummy':
+                        card_sources.append({'sql-source-table': table.name})
+            except Exception as e:
+                print(f"Could't parse {id} {e}")
         else:
-            query_to_parse = card_metadata['dataset_query']['native']['query']
-        for table in parse_one(query_to_parse).find_all(exp.Table):
-            if table.name != 'dummy':
-                card_sources.append({'sql-source-table': table.name})
+            card_sources = key_finder(card_metadata, 'source-table')
+        card = [{
+            'card_sources': card_sources,
+            'card_id': str(card_metadata['id']),
+            'card_name': card_metadata['name'],
+            'collection_slug': 'root' if card_metadata['collection']['id'] == 'root' else card_metadata['collection']['slug'],
+            'archived': card_metadata['archived']
+            }]
+        return card
     else:
-        card_sources = key_finder(card_metadata, 'source-table')
-    card = [{
-        'card_sources': card_sources,
-        'card_id': str(card_metadata['id']),
-        'card_name': card_metadata['name'],
-        'collection_slug': 'root' if card_metadata['collection']['id'] == 'root' else card_metadata['collection']['slug']
-        }]
-    return card
+        return [{
+            "card_name": 'Corrupted card',
+            "card_id": id,
+            'collection_slug': 'root',
+            'card_sources': []
+            }]
 
 def getSchemas(session, databases:dict) -> dict:
     for database in databases:
@@ -125,8 +143,14 @@ def getDatabases(session) -> dict:
 
 def getTables(session, database: dict, schema:dict) -> dict:
     tables = []
+    if "/" in schema:
+        schema = schema.replace("/", "%2F")
     tables_metadata = session.get(f"{databases_url}/{database}/schema/{schema}", verify=False)
-    tables_metadata = tables_metadata.json()
+    try:
+        tables_metadata = tables_metadata.json()
+    except Exception as e:
+        print(e)
+        print(database, schema)
     for table in tables_metadata:
         tables.append([{'name': table["name"], 'id': table["id"]}])
     return tables
@@ -221,11 +245,11 @@ def writeCollectionsAndCards(session, writerType, writer) -> None:
                         if type(source['source-table']) == str:
                             # This should be a previously created card
                             matchCardWithTable = f"MATCH (a_card:Card {{key: 'card{card_metadata['card_id']}'}}), (card_or_table:Card {{key: '{source['source-table'].lower().replace('__','')}'}})\n"
-                            createCardRelationshipToCardOrTable = f"CREATE (a_card)-[:SOURCE]->(card_or_table)\n"
+                            # createCardRelationshipToCardOrTable = f"CREATE (a_card)-[:SOURCE]->(card_or_table)\n"
                         else:
                             # And this should be a regular table
                             matchCardWithTable = f"MATCH (a_card:Card {{key: 'card{card_metadata['card_id']}'}}), (card_or_table:Table {{name: '{sanitize_names(getTableName(session, source['source-table']))}'}})\n"
-                            createCardRelationshipToCardOrTable = f"CREATE (a_card)-[:SOURCE]->(card_or_table)\n"
+                    createCardRelationshipToCardOrTable = f"CREATE (a_card)-[:SOURCE]->(card_or_table)\n"
                     writeTo(writerType, writer, matchCardWithTable + createCardRelationshipToCardOrTable)
             total += 1
             progress.update(total)

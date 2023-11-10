@@ -64,6 +64,10 @@ After you populated the neo4j db, you can run queries like:
 ![Node3](anotherNode.png)
 ![Node4](moreExpandedNode.png)
 
+## LIMITATIONS:
+- can´t parse questions with snippets
+- can't parse questions with CTEs
+
 # To do
 - Dockerize this
 - Add tests
