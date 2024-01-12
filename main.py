@@ -230,6 +230,11 @@ def writeCollectionsAndCards(session, writerType, writer) -> None:
         # Now we'll loop over all cards
         for card in range(max):
             card_metadata = getSourcesFromCard(session, card + 1)[0]
+
+            # Skip archived cards
+            if 'archived' in card_metadata and card_metadata['archived'] is True:
+                continue
+
             createGUICard = f"CREATE (Card__{card_metadata['card_id']}:Card {{name: '{sanitize_names(card_metadata['card_name'])}', key: 'card{card_metadata['card_id']}'}})\n"
             matchCardAndCollection = f"MATCH (a_collection:Collection {{name: '{card_metadata['collection_slug']}'}}), (a_card:Card {{key: 'card{card_metadata['card_id']}'}})\n"
             createGUICardRelationshipToCollection = f"CREATE (a_card)-[:BELONGS_TO]->(a_collection)\n"
