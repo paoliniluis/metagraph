@@ -208,7 +208,7 @@ def writeDatabases(session, writerType, writer, fields:bool) -> None:
             total += 1
             progress.update(total)
 
-def writeCollectionsAndCards(session, writerType, writer) -> None:
+def writeCollectionsAndCards(session, writerType, writer, skip_archived:bool) -> None:
     collections = getCollectionsMetadata(session)
     with typer.progressbar(range(len(collections)), label="Writing collections") as progress:
         total = 0
@@ -232,7 +232,7 @@ def writeCollectionsAndCards(session, writerType, writer) -> None:
             card_metadata = getSourcesFromCard(session, card + 1)[0]
 
             # Skip archived cards
-            if 'archived' in card_metadata and card_metadata['archived'] is True:
+            if skip_archived and 'archived' in card_metadata and card_metadata['archived'] is True:
                 continue
 
             createGUICard = f"CREATE (Card__{card_metadata['card_id']}:Card {{name: '{sanitize_names(card_metadata['card_name'])}', key: 'card{card_metadata['card_id']}'}})\n"
@@ -280,7 +280,7 @@ def writeDashboards(session, writerType, writer):
             progress.update(total)
 
 @app.command()
-def cypher(fields: bool = False):
+def cypher(fields: bool = False, skip_archived: bool = False):
     try:
         metabaseSession = metabaseAuth()
     except:
@@ -289,14 +289,14 @@ def cypher(fields: bool = False):
     with open('metadata.cypher', 'w') as writer:
         writeDatabases(metabaseSession, 'file', writer, fields)
         # Writing Collections and cards
-        writeCollectionsAndCards(metabaseSession, 'file', writer)
+        writeCollectionsAndCards(metabaseSession, 'file', writer, skip_archived)
         # This is a 3rd pass in order to be safe and avoid writing a dashboard node before the card has been written (e.g. cards that were moved to a latter collection but belong to a dashboard that's on a small ID)
         # Writing Dashboards
         writeDashboards(metabaseSession, 'file', writer)
     metabaseSession.delete(login_url)
 
 @app.command()
-def neo4j(fields: bool = False):
+def neo4j(fields: bool = False, skip_archived: bool = False):
     try:
         metabaseSession = metabaseAuth()
     except:
@@ -309,7 +309,7 @@ def neo4j(fields: bool = False):
     
     writeDatabases(metabaseSession, 'cypher', writer, fields)
     # Writing Collections and cards
-    writeCollectionsAndCards(metabaseSession, 'cypher', writer)
+    writeCollectionsAndCards(metabaseSession, 'cypher', writer, skip_archived)
     writeDashboards(metabaseSession, 'cypher', writer)
     writer.close()
     metabaseSession.delete(login_url)
