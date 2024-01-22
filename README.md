@@ -31,6 +31,14 @@ session_token=xxxxx python main.py cypher
 
 Simply pass the --fields argument to the script. I added this but it's not being used at all, for now
 
+### I want to get only the cards from a single database
+
+Use the --database-list parameter, which accepts as a parameter a comma separated list of databases. For example, if you use "--database-list 1,3,5,10", it will get only the questions from those databases only (please take into account that this won't make the process faster, it only ignores the questions from those databases when it runs)
+
+### The script ignores the archived cards
+
+Starting from the new version (Jan-2024), the script does not write the cards on the archive. If you want to get which cards are archived, use the flag --no-skip-archived
+
 ## How to visualize a node chart in Neo4j
 
 ```
@@ -65,10 +73,13 @@ After you populated the neo4j db, you can run queries like:
 ![Node4](moreExpandedNode.png)
 
 ## LIMITATIONS:
-- can´t parse questions with snippets
+- can't parse questions with snippets
 - can't parse questions with CTEs
 
 # To do
 - Dockerize this
 - Add tests
 - Probably many refactors
+- track better the references to cards, e.g. we can track if the card references are {{#something}}, but we don't when cards have variations of this
+- the sqlglot library doesn't parse very well when there are foreign data wrappers or comments
+- ignore questions that are from mongodb or h2, we're ignoring if there are databases of these types, but we don't ignore the questions
