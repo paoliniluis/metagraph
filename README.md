@@ -24,7 +24,7 @@ A graph database will allow you to do impact analyses like: "what happens if I d
 Simply enter the session token as an environment variable and run the program as:
 
 ```
-session_token=xxxxx python main.py cypher
+session_cookie=xxxxx python main.py cypher
 ```
 
 ### I want to know the fields of each table
