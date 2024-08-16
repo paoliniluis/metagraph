@@ -144,7 +144,7 @@ def getDashboardMetadata(session, dashboard:int) -> dict:
 def getDashboardCards(session, dashboard:dict) -> dict:
     response = session.get(f"{dashboard_url}/{dashboard}", verify=False)
     dashboard_metadata = response.json()
-    return dashboard_metadata["ordered_cards"]
+    return dashboard_metadata["dashcards"]
 
 def getDatabases(session) -> dict:
     databases = {}
