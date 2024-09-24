@@ -9,8 +9,8 @@ urllib3.disable_warnings()
 
 app = typer.Typer()
 
-host = os.environ.get('host') if os.environ.get('host') else 'http://localhost:3001'
-neo4jURI = os.environ.get('neo4juri') if os.environ.get('neo4juri') else 'neo4j://localhost:7687'
+host = os.environ.get('host', 'http://localhost:3001')
+neo4jURI = os.environ.get('neo4juri', 'neo4j://localhost:7687')
 
 login_url = f"{host}/api/session"
 table_url = f"{host}/api/table"
@@ -22,11 +22,11 @@ dashboard_url = f"{host}/api/dashboard"
 native_card_url = f"{host}/api/dataset/native"
 
 def metabaseAuth() -> any:
-    USER = os.environ.get('user') if os.environ.get('user') else 'a@b.com'
-    PASSWORD = os.environ.get('password') if os.environ.get('password') else 'metabot1'
+    USER = os.environ.get('user', 'a@b.com')
+    PASSWORD = os.environ.get('password', 'metabot1')
     login_payload = {"username": f"{USER}", "password": f"{PASSWORD}"}
     session = requests.Session()
-    session_cookie = os.environ.get('session_cookie') if os.environ.get('session_cookie') else ''
+    session_cookie = os.environ.get('session_cookie', '')
     if session_cookie:
         session.cookies.set('metabase.SESSION', f'{session_cookie}')
     else:
